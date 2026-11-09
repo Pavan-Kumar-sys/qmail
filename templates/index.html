@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Q-Mail | Quantum-Secure Email Client</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; background: #0f172a; color: #e2e8f0; margin: 0; padding: 20px; }
+        .container { max-width: 1100px; margin: auto; }
+        .header { display: flex; justify-content: space-between; align-items: center; background: #1e293b; padding: 15px 25px; border-radius: 10px; border: 1px solid #334155; margin-bottom: 20px; }
+        .alert { background: #065f46; color: #a7f3d0; padding: 12px 20px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #10b981; font-weight: bold; }
+        .badge { background: #10b981; color: #064e3b; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: bold; }
+        .grid { display: grid; grid-template-columns: 1fr 1.5fr; gap: 20px; }
+        .card { background: #1e293b; padding: 20px; border-radius: 10px; border: 1px solid #334155; margin-bottom: 20px; }
+        h2, h3 { margin-top: 0; color: #38bdf8; }
+        label { display: block; margin-top: 10px; font-size: 13px; color: #94a3b8; }
+        input, select, textarea { width: 100%; padding: 10px; margin-top: 5px; border-radius: 6px; border: 1px solid #475569; background: #0f172a; color: #fff; box-sizing: border-box; }
+        button { margin-top: 15px; width: 100%; padding: 10px; background: #0284c7; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; }
+        button:hover { background: #0369a1; }
+        .email-item { background: #0f172a; padding: 15px; border-radius: 8px; border: 1px solid #334155; margin-bottom: 12px; }
+        .crypto-box { background: #020617; color: #34d399; font-family: monospace; font-size: 11px; padding: 10px; border-radius: 6px; margin-top: 8px; word-break: break-all; }
+        .key-preview { font-family: monospace; font-size: 11px; color: #facc15; word-break: break-all; background: #0f172a; padding: 8px; border-radius: 5px; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <div>
+            <h2 style="margin:0;">🛡️ Q-Mail Client (Live Gmail SMTP/IMAP + Lattice KEM)</h2>
+            <small style="color:#94a3b8;">Post-Quantum Lattice KEM (LWE-Kyber) + AES-256-GCM</small>
+        </div>
+        <form method="GET" action="/" style="display:flex; align-items:center; gap:10px;">
+            <label style="margin:0;">Active Account:</label>
+            <select name="user" onchange="this.form.submit()" style="width:auto; margin:0;">
+                {% for u in users %}
+                <option value="{{ u.email }}" {% if u.email == current_user.email %}selected{% endif %}>
+                    {{ u.name }} ({{ u.email }})
+                </option>
+                {% endfor %}
+            </select>
+        </form>
+    </div>
+
+    {% if status_msg %}
+    <div class="alert">🔔 {{ status_msg }}</div>
+    {% endif %}
+
+    <div class="grid">
+        <!-- Left Column: Register Gmail, Compose & Keys -->
+        <div>
+            <div class="card">
+                <h3>➕ Step A: Register Your Real Gmail Address</h3>
+                <small style="color:#94a3b8;">Add your real Gmail here first so it gets a Quantum Lattice Keypair!</small>
+                <form method="POST" action="/new_user">
+                    <input type="text" name="name" placeholder="Your Name" required>
+                    <input type="email" name="email" placeholder="your.real.email@gmail.com" required>
+                    <button type="submit" style="background:#4f46e5;">Generate Lattice Keypair for Gmail</button>
+                </form>
+            </div>
+
+            <div class="card">
+                <h3>✉️ Step B: Send Quantum-Locked Email</h3>
+                <form method="POST" action="/send">
+                    <input type="hidden" name="sender" value="{{ current_user.email }}">
+                    <label>From:</label>
+                    <input type="text" value="{{ current_user.name }} ({{ current_user.email }})" disabled>
+
+                    <label>To (Can be your own Gmail to test!):</label>
+                    <select name="recipient">
+                        {% for u in users %}
+                        <option value="{{ u.email }}">{{ u.name }} ({{ u.email }})</option>
+                        {% endfor %}
+                    </select>
+
+                    <label>16-Letter Google App Password (Optional - Leave blank for local test):</label>
+                    <input type="password" name="app_password" placeholder="xxxx xxxx xxxx xxxx (Sends via real Gmail SMTP)">
+
+                    <label>Subject:</label>
+                    <input type="text" name="subject" placeholder="Quantum Secret Test" required>
+
+                    <label>Message Body:</label>
+                    <textarea name="body" rows="3" placeholder="Write your quantum-protected message..." required></textarea>
+
+                    <button type="submit">🔒 Encapsulate & Send Email</button>
+                </form>
+            </div>
+
+            <div class="card">
+                <h3>🔑 Active User's Quantum Public Key</h3>
+                <div class="key-preview">{{ current_user.public_key[:160] }}...</div>
+            </div>
+        </div>
+
+        <!-- Right Column: Sync Real Gmail & Inbox -->
+        <div>
+            <div class="card">
+                <h3>🔄 Step C: Fetch & Unlock from Real Gmail Inbox (IMAP)</h3>
+                <form method="POST" action="/sync_gmail" style="display:flex; gap:10px; align-items:flex-end;">
+                    <input type="hidden" name="user_email" value="{{ current_user.email }}">
+                    <div style="flex:1;">
+                        <label style="margin-top:0;">Enter 16-Letter App Password for {{ current_user.email }}:</label>
+                        <input type="password" name="app_password" placeholder="xxxx xxxx xxxx xxxx" required>
+                    </div>
+                    <button type="submit" style="width:auto; padding:10px 20px; background:#059669; margin:0;">Sync Gmail</button>
+                </form>
+            </div>
+
+            <div class="card">
+                <h3>📥 Quantum-Decrypted Inbox for {{ current_user.name }}</h3>
+                {% if inbox %}
+                    {% for mail in inbox %}
+                    <div class="email-item">
+                        <div style="display:flex; justify-content:space-between;">
+                            <strong>{{ mail.subject }}</strong>
+                            <span class="badge">Decapsulated ✓</span>
+                        </div>
+                        <small style="color:#94a3b8;">From: {{ mail.sender }} | {{ mail.timestamp }}</small>
+                        <p style="margin: 12px 0; color:#f8fafc; font-size:15px;">{{ mail.decrypted_body }}</p>
+                        <details>
+                            <summary style="cursor:pointer; font-size:12px; color:#38bdf8;">Inspect Raw Quantum Ciphertext & KEM Capsule</summary>
+                            <div class="crypto-box">
+                                <strong>AES-256-GCM Ciphertext:</strong> {{ mail.ciphertext }}<br><br>
+                                <strong>Nonce:</strong> {{ mail.nonce }}<br><br>
+                                <strong>Lattice KEM Capsule (Sample):</strong> {{ mail.kem_capsule[:180] }}...
+                            </div>
+                        </details>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <p style="color:#64748b;">No quantum emails in this inbox yet.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+</body>
+</html>
